@@ -1,2 +1,2 @@
-# otus_python_basic
-Python development course homeworks
+# Домашние задания для курса Python Developer
+Каждое домашнее задание хранится в отдельной ветке
