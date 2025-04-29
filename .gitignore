@@ -1,0 +1,12 @@
+.venv
+.env
+.python-version
+__pycache__/
+
+*.py[cod]
+*$py.class
+*.idea/
+.idea/
+
+# Visual Studio Code
+.vscode/
