@@ -10,11 +10,6 @@
 > 3. Создать кастомные исключения для обработки всевозможных ошибок;
 
 ## Инструкция
-### Настройка окружения перед первым запуском
-```bash
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
 ```
 ### Запуск
 ```bash
