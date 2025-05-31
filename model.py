@@ -1,102 +1,99 @@
-from pydantic import BaseModel, Field, ValidationError
-from tabulate import tabulate
 import sqlite3
+from contextlib import contextmanager
+from typing import Generator
+from abc import ABC, abstractmethod
 
 
+class AbstractDatabaseSession(ABC):
+    @classmethod
+    @abstractmethod
+    @contextmanager
+    def connection(cls):
+        raise NotImplementedError
 
-class Contact(BaseModel):
-    id: int | None = Field(None, title="ID")
-    name: str = Field(..., title="Имя", min_length=2)
-    phone: str = Field(..., title="Телефон", min_length=5)
-    comment: str = Field(title="Комментарий")
-
-
-def convert_tuples_to_contacts(data: list[tuple]) -> list[Contact]:
-    keys = ["id", "name", "phone", "comment"]
-    contacts = [Contact(**dict(zip(keys, contact))) for contact in data]
-    return contacts
-
-
-def get_contacts_table(contacts: list[Contact]) -> str:
-    headers = [field.title or name for name, field in Contact.model_fields.items()]
-    rows = [
-        [getattr(contact, name) for name in Contact.model_fields]
-        for contact in contacts
-    ]
-    return tabulate(rows, headers=headers, tablefmt="grid")
+    @classmethod
+    @abstractmethod
+    @contextmanager
+    def cursor(cls):
+        raise NotImplementedError
 
 
-def get_connection() -> sqlite3.Connection:
-    conn = sqlite3.connect("phonebook.db")
-    return conn
+class DatabaseSession(AbstractDatabaseSession):
+    path = "phonebook.db"
+
+    @classmethod
+    @contextmanager
+    def connection(cls) -> Generator[sqlite3.Connection, None, None]:
+        conn = sqlite3.connect(cls.path)
+        try:
+            yield conn
+        finally:
+            conn.close()
+
+    @classmethod
+    @contextmanager
+    def cursor(cls) -> Generator[sqlite3.Cursor, None, None]:
+        with cls.connection() as conn:
+            cursor = conn.cursor()
+            try:
+                yield cursor
+                conn.commit()
+            except Exception as e:
+                conn.rollback()
+                raise e
 
 
-def get_all_contacts() -> list:
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM contacts")
-    contacts = cursor.fetchall()
-    conn.close()
-    return contacts
+class PhoneBookModel:
+    def __init__(self, session: AbstractDatabaseSession = DatabaseSession()):
+        self._db = session
 
+    def get_all_contacts(self) -> list[sqlite3.Row]:
+        with self._db.cursor() as cursor:
+            cursor.execute("SELECT * FROM contacts")
+            return cursor.fetchall()
 
-def delete_contact(contact_id: int) -> None:
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(f"DELETE FROM contacts WHERE id = {contact_id}")
-    conn.commit()
-    conn.close()
+    def get_contact(self, contact_id: int) -> sqlite3.Row | None:
+        with self._db.cursor() as cursor:
+            cursor.execute("SELECT * FROM contacts WHERE id = ?", (contact_id,))
+            return cursor.fetchone()
 
+    def delete_contact(self, contact_id: int) -> None:
+        with self._db.cursor() as cursor:
+            cursor.execute("DELETE FROM contacts WHERE id = ?", (contact_id,))
 
-def add_contact(contact: Contact) -> None:
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        INSERT INTO contacts (name, phone, comment) VALUES (?, ?, ?)
-    """,
-        (contact.name, contact.phone, contact.comment),
-    )
-    conn.commit()
-    conn.close()
+    def add_contact(self, name: str, phone: str, comment: str) -> int:
+        with self._db.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO contacts (name, phone, comment) 
+                VALUES (?, ?, ?)
+                """,
+                (name, phone, comment)
+            )
+            return cursor.lastrowid
 
+    def update_contact(self, contact_id: int, name: str, phone: str, comment: str) -> None:
+        with self._db.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE contacts 
+                SET name = ?, phone = ?, comment = ? 
+                WHERE id = ?
+                """,
+                (name, phone, comment, contact_id)
+            )
 
-def change_contact(contact_id: int, contact_data: Contact) -> None:
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        UPDATE contacts SET name = ?, phone = ?, comment = ? WHERE id = ?
-    """,
-        (contact_data.name, contact_data.phone, contact_data.comment, contact_id),
-    )
-    conn.commit()
-    conn.close()
-
-
-def get_contact(contact_id: int) -> tuple:
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(f"SELECT * FROM contacts WHERE id = {contact_id}")
-    contact = cursor.fetchone()
-    conn.close()
-    return contact
-
-
-def find_contacts(query) -> list:
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        f"SELECT * FROM contacts WHERE id LIKE '%{query}%' "
-        f"OR name LIKE '%{query}%' "
-        f"OR phone LIKE '%{query}%' "
-        f"OR comment LIKE '%{query}%'"
-    )
-    contacts = cursor.fetchall()
-    conn.close()
-    return contacts
-
-
-class ContractModel:
-    def __init__(self):
-        pass
+    def find_contacts(self, query: str) -> list[sqlite3.Row]:
+        search_pattern = f"%{query}%"
+        with self._db.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT * FROM contacts 
+                WHERE id LIKE ? 
+                   OR name LIKE ? 
+                   OR phone LIKE ?
+                   OR comment LIKE ?
+                """,
+                (search_pattern, search_pattern, search_pattern, search_pattern)
+            )
+            return cursor.fetchall()
