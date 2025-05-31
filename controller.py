@@ -12,20 +12,24 @@ class PhoneBookController:
         self._view = view
 
     def contact_is_exists(self, contact_id: int) -> bool:
+        """Проверяет, существует ли контакт с заданным ID."""
         if not self._model.contact_is_exists(contact_id):
             self._view.print_error("Контакт не найден")
             return False
         return True
 
     def show_all_contacts(self) -> None:
+        """Выводит все контакты."""
         contacts = self._model.get_all_contacts()
         self._view.print_contacts(contacts)
 
     def add_contact(self, name: str, phone: str, comment: str) -> None:
+        """Добавляет новый контакт."""
         self._model.add_contact(name, phone, comment)
         self._view.print_message_success_add_contact(name)
 
     def find_contacts(self, query: str) -> None:
+        """Находит контакты по запросу и выводит их."""
         contacts = self._model.find_contacts(query)
         if not contacts:
             self._view.print_error(f"Контакты по запросу {query} не найдены")
@@ -33,6 +37,7 @@ class PhoneBookController:
             self._view.print_message_find_contacts(contacts)
 
     def delete_contact(self, contact_id: int) -> None:
+        """Удаляет контакт по ID."""
         if not self.contact_is_exists(contact_id):
             return
         contact_name = self._model.get_contact(contact_id)[1]
@@ -40,6 +45,7 @@ class PhoneBookController:
         self._view.print_success_delete_contact(contact_name)
 
     def update_contact(self, contact_id: int, name: str, phone: str, comment: str) -> None:
+        """Обновляет контакт по ID."""
         if not self.contact_is_exists(contact_id):
             return
         contact_name = self._model.get_contact(contact_id)[1]
@@ -47,6 +53,7 @@ class PhoneBookController:
         self._view.print_message_success_update_contact(contact_name)
 
     def get_contact(self, contact_id: int) -> None:
+        """Выводит контакт по ID."""
         if not self.contact_is_exists(contact_id):
             return
         contact = self._model.get_contact(contact_id)
