@@ -47,6 +47,10 @@ class PhoneBookModel:
     def __init__(self, session: AbstractDatabaseSession = DatabaseSession()):
         self._db = session
 
+    def contact_is_exists(self, contact_id: int) -> bool:
+        contact = self.get_contact(contact_id)
+        return contact is not None
+
     def get_all_contacts(self) -> list[sqlite3.Row]:
         with self._db.cursor() as cursor:
             cursor.execute("SELECT * FROM contacts")
@@ -61,7 +65,7 @@ class PhoneBookModel:
         with self._db.cursor() as cursor:
             cursor.execute("DELETE FROM contacts WHERE id = ?", (contact_id,))
 
-    def add_contact(self, name: str, phone: str, comment: str) -> int:
+    def add_contact(self, name: str, phone: str, comment: str) -> None:
         with self._db.cursor() as cursor:
             cursor.execute(
                 """
@@ -70,7 +74,6 @@ class PhoneBookModel:
                 """,
                 (name, phone, comment)
             )
-            return cursor.lastrowid
 
     def update_contact(self, contact_id: int, name: str, phone: str, comment: str) -> None:
         with self._db.cursor() as cursor:
