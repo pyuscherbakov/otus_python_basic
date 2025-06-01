@@ -1,3 +1,4 @@
+from exceptions import ContactNotFoundError
 from model import PhoneBookModel
 from view import PhonebookView
 
@@ -10,13 +11,6 @@ class PhoneBookController:
     ) -> None:
         self._model = model
         self._view = view
-
-    def contact_is_exists(self, contact_id: int) -> bool:
-        """Проверяет, существует ли контакт с заданным ID."""
-        if not self._model.contact_is_exists(contact_id):
-            self._view.print_error("Контакт не найден")
-            return False
-        return True
 
     def show_all_contacts(self) -> None:
         """Выводит все контакты."""
@@ -38,23 +32,20 @@ class PhoneBookController:
 
     def delete_contact(self, contact_id: int) -> None:
         """Удаляет контакт по ID."""
-        if not self.contact_is_exists(contact_id):
-            return
         contact_name = self._model.get_contact(contact_id)[1]
         self._model.delete_contact(contact_id)
         self._view.print_success_delete_contact(contact_name)
 
     def update_contact(self, contact_id: int, name: str, phone: str, comment: str) -> None:
         """Обновляет контакт по ID."""
-        if not self.contact_is_exists(contact_id):
-            return
         contact_name = self._model.get_contact(contact_id)[1]
         self._model.update_contact(contact_id, name, phone, comment)
         self._view.print_message_success_update_contact(contact_name)
 
     def get_contact(self, contact_id: int) -> None:
         """Выводит контакт по ID."""
-        if not self.contact_is_exists(contact_id):
-            return
-        contact = self._model.get_contact(contact_id)
-        self._view.print_contact(contact)
+        try:
+            contact = self._model.get_contact(contact_id)
+            self._view.print_contact(contact)
+        except ContactNotFoundError as e:
+            self._view.print_error(e)
